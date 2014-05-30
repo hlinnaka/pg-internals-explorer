@@ -3,7 +3,9 @@
 
 #include <ncurses.h>
 
-static WINDOW *hdrpad;
+static WINDOW *statuswin;
+static WINDOW *hdrwin;
+static WINDOW *mainwin;
 static WINDOW *blockpad;
 static int blockpad_pos = 0;
 
@@ -51,40 +53,52 @@ move_selection(int n)
 static void
 refresh_screen(void)
 {
-	prefresh(hdrpad, 0, 0, 2, 0, 2, 80);
-	prefresh(blockpad, blockpad_pos, 0, 3, 0, blockpad_lines + 3, 80);
+	wrefresh(hdrwin);
+	prefresh(blockpad, blockpad_pos, 0, 2, 0, blockpad_lines + 2, 80);
 }
 
 int main()
 {
 	int ch;
 	
-	initscr();			/* Start curses mode 		*/
-	raw();				/* Line buffering disabled	*/
-	keypad(stdscr, TRUE);		/* We get F1, F2 etc..		*/
-	noecho();			/* Don't echo() while we do getch */
+	initscr();			/* start curses	*/
+	raw();				/* disable line buffering */
+	keypad(stdscr, TRUE);
+	noecho();
+
 	start_color();
 	use_default_colors();
 	init_pair(10, COLOR_WHITE, COLOR_RED);
 
+	statuswin = subwin(stdscr, 1, 0, 0, 0);
+	hdrwin = subwin(stdscr, 1, 0, 1, 0);
+
+	blockpad = newpad(1000, 60);
+
+	errorw = statuswin;
+
+	wclear(stdscr);
+
 	db_connect();
-   
-	blockpad = newpad(1000, 80);
-	hdrpad = newpad(1, 80);
-
-	refresh_screen();
-
 	if (db_is_connected())
 	{
+		reporterror("connected");
 		rels = db_fetch_relations(&nrels);
-		display_relations(hdrpad, blockpad, rels, nrels);
+		if (rels)
+			display_relations(hdrwin, blockpad, rels, nrels);
 	}
-	wclear(stdscr);
+
+	move_selection(0);
+	refresh();
 
 	for (;;)
 	{
 		refresh_screen();
+
 		ch = getch();
+
+		werase(statuswin);
+		wrefresh(statuswin);
 
 		switch (ch)
 		{
@@ -122,8 +136,8 @@ int main()
 					{
 						blockpad_pos_save = blockpad_pos;
 						blockpad_pos = 0;
-						display_block(hdrpad, blockpad, block, displayed_block);
 						displayed_block = 0;
+						display_block(hdrwin, blockpad, block, displayed_block);
 					}
 				}
 				break;
@@ -133,7 +147,7 @@ int main()
 				{
 					displayed_block = InvalidBlockNumber;
 					blockpad_pos = blockpad_pos_save;
-					display_relations(hdrpad, blockpad, rels, nrels);
+					display_relations(hdrwin, blockpad, rels, nrels);
 					mvwchgat(blockpad, selected_rel, 0, 40, A_REVERSE, 0, NULL);
 				}
 				break;
@@ -145,8 +159,8 @@ int main()
 					BlockNumber blkno;
 					char *endptr;
 
-					werase(hdrpad);
-					mvwprintw(hdrpad, 0, 0, "Goto block: ");
+					werase(hdrwin);
+					mvwprintw(hdrwin, 0, 0, "Goto block: ");
 					refresh_screen();
 					echo();
 					getnstr(str, sizeof(str) - 1);
@@ -155,8 +169,8 @@ int main()
 					blkno = strtoul(str, &endptr, 10);
 					if (*endptr != '\0')
 					{
-						werase(hdrpad);
-						mvwprintw(hdrpad, 0, 0, "Invalid block number");
+						werase(hdrwin);
+						mvwprintw(hdrwin, 0, 0, "Invalid block number");
 					}
 					else
 					{
@@ -166,8 +180,8 @@ int main()
 							displayed_block = blkno;
 							blockpad_pos_save = blockpad_pos;
 							blockpad_pos = 0;
-							display_block(hdrpad, blockpad, block, displayed_block);
 							displayed_block = 0;
+							display_block(hdrwin, blockpad, block, displayed_block);
 						}
 					}
 				}

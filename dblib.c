@@ -27,7 +27,7 @@ db_connect(void)
 	if (PQstatus(conn) != CONNECTION_OK)
 	{
 		reporterror("Connection to database failed: %s",
-				PQerrorMessage(conn));
+					PQerrorMessage(conn));
 		PQfinish(conn);
 		conn = NULL;
 	}

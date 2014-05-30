@@ -5,6 +5,8 @@
 
 #include <ncurses.h>
 
+/***** stuff copy-pasted from btree.h *****/
+
 /* There's room for a 16-bit vacuum cycle ID in BTPageOpaqueData */
 typedef uint16 BTCycleId;
 #define MAX_BT_CYCLE_ID		0xFF7F
@@ -23,6 +25,47 @@ typedef struct BTPageOpaqueData
 } BTPageOpaqueData;
 
 typedef BTPageOpaqueData *BTPageOpaque;
+
+typedef struct IndexTupleData
+{
+	ItemPointerData t_tid;		/* reference TID to heap tuple */
+
+	/* ---------------
+	 * t_info is laid out in the following fashion:
+	 *
+	 * 15th (high) bit: has nulls
+	 * 14th bit: has var-width attributes
+	 * 13th bit: unused
+	 * 12-0 bit: size of tuple
+	 * ---------------
+	 */
+
+	unsigned short t_info;		/* various info about tuple */
+
+} IndexTupleData;				/* MORE DATA FOLLOWS AT END OF STRUCT */
+
+typedef IndexTupleData *IndexTuple;
+
+
+#define IndexInfoFindDataOffset(t_info) \
+( \
+	(!((t_info) & INDEX_NULL_MASK)) ? \
+	( \
+		(Size)MAXALIGN(sizeof(IndexTupleData)) \
+	) \
+	: \
+	( \
+		(Size)MAXALIGN(sizeof(IndexTupleData) + sizeof(IndexAttributeBitMapData)) \
+	) \
+)
+#define INDEX_NULL_MASK 0x8000
+
+typedef struct IndexAttributeBitMapData
+{
+	bits8		bits[(INDEX_MAX_KEYS + 8 - 1) / 8];
+}	IndexAttributeBitMapData;
+
+/*****  *****/
 
 
 static void display_heap_block(WINDOW *hdrw, WINDOW *w, char *block, BlockNumber blkno);
@@ -200,17 +243,25 @@ display_btree_block(WINDOW *hdrw, WINDOW *w, char *block, BlockNumber blkno)
 				break;
 		}
 
-		wprintw(w, "%u: off: %u, flags: %s, len: %u\n",
+		wprintw(w, "%u: off: %u, flags: %s, len: %u",
 				off, iid->lp_off, flags, iid->lp_len);
 
 		if (ItemIdHasStorage(iid))
 		{
-			ItemPointer t_tid = (ItemPointer) PageGetItem(block, iid);
-			wprintw(w, "    (%u, %u)\n",
-					(BlockNumber) ((t_tid->ip_blkid.bi_hi << 16) | (uint16) (t_tid->ip_blkid.bi_lo)),
-					t_tid->ip_posid);
-		}
+			IndexTuple itup = (IndexTuple) PageGetItem(block, iid);
+			ItemPointerData t_tid = itup->t_tid;
+			int32		key;
 
+			wprintw(w, "    (%u, %u)",
+					(BlockNumber) ((t_tid.ip_blkid.bi_hi << 16) | (uint16) (t_tid.ip_blkid.bi_lo)),
+					t_tid.ip_posid);
+
+			/* key value, assuming it's an int4 */
+			key = *(int32 *)(((char *) itup) + IndexInfoFindDataOffset(itup->t_info));
+			wprintw(w, "  %d", key);
+
+			wprintw(w, "\n");
+		}
 	}
 
 	wprintw(w, "\nRaw:\n");
@@ -275,6 +326,7 @@ display_relations(WINDOW *hdrw, WINDOW *w, relation_info *rels, int nrels)
 		mvwprintw(w, i, 30, "%u", rel->nblocks);
 		mvwprintw(w, i, 40, "%c", rel->relkind);
 	}
+	reporterror("relations fetched");
 }
 
 

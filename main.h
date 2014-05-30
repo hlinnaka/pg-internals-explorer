@@ -7,7 +7,14 @@
 #include "postgres_fe.h"
 #include "storage/block.h"
 
-#define reporterror(...) mvprintw(0,0, __VA_ARGS__)
+#include <stdarg.h>
+
+#define reporterror(...)							\
+	do {											\
+		werase(errorw);								\
+		mvwprintw(errorw, 0,0, __VA_ARGS__);		\
+		wrefresh(errorw);							\
+	} while(0);
 
 typedef struct
 {
@@ -15,6 +22,8 @@ typedef struct
 	BlockNumber	nblocks;
 	char		relkind;
 } relation_info;
+
+WINDOW *errorw;
 
 
 extern void db_connect(void);
