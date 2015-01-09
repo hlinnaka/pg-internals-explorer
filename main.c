@@ -208,7 +208,6 @@ int main()
 							displayed_block = blkno;
 							blockpad_pos_save = blockpad_pos;
 							blockpad_pos = 0;
-							displayed_block = 0;
 							display_block(hdrwin, blockpad, block, displayed_block);
 						}
 					}
