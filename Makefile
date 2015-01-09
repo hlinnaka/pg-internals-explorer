@@ -1,5 +1,4 @@
-
-PG_CONFIG = /home/heikki/pgsql.master/bin/pg_config
+PG_CONFIG = pg_config
 
 PROGRAM = pg_internals_explorer
 OBJS = main.o dblib.o display.o

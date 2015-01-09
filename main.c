@@ -13,7 +13,7 @@ static relation_info *rels;
 static int nrels;
 
 static int selected_rel = 0;
-static int blockpad_pos_save;
+static int blockpad_pos_save = 0;
 
 static int blockpad_lines = 20;
 
@@ -140,15 +140,43 @@ int main()
 						display_block(hdrwin, blockpad, block, displayed_block);
 					}
 				}
+				else
+				{
+					displayed_block++;
+					block = db_fetch_block(rels[selected_rel].relname, "main", displayed_block);
+					if (block)
+					{
+						blockpad_pos_save = blockpad_pos;
+						blockpad_pos = 0;
+						display_block(hdrwin, blockpad, block, displayed_block);
+					}
+				}
 				break;
 
 			case KEY_LEFT:
 				if (displayed_block != InvalidBlockNumber)
 				{
-					displayed_block = InvalidBlockNumber;
-					blockpad_pos = blockpad_pos_save;
-					display_relations(hdrwin, blockpad, rels, nrels);
-					mvwchgat(blockpad, selected_rel, 0, 40, A_REVERSE, 0, NULL);
+					displayed_block--;
+					if (displayed_block == InvalidBlockNumber)
+					{
+						blockpad_pos = blockpad_pos_save;
+						if (displayed_block == InvalidBlockNumber)
+						{
+							display_relations(hdrwin, blockpad, rels, nrels);
+							mvwchgat(blockpad, selected_rel, 0, 40, A_REVERSE, 0, NULL);
+						}
+					}
+					else
+					{
+						block = db_fetch_block(rels[selected_rel].relname, "main", displayed_block);
+						if (block)
+						{
+							blockpad_pos_save = blockpad_pos;
+							blockpad_pos = 0;
+							display_block(hdrwin, blockpad, block, displayed_block);
+						}
+					}
+
 				}
 				break;
 
@@ -180,7 +208,6 @@ int main()
 							displayed_block = blkno;
 							blockpad_pos_save = blockpad_pos;
 							blockpad_pos = 0;
-							displayed_block = 0;
 							display_block(hdrwin, blockpad, block, displayed_block);
 						}
 					}
